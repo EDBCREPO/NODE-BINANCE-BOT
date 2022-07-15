@@ -1,0 +1,15 @@
+{
+	"users":[
+		{
+			"name":"usuario 1",
+			"mail":"usuario1@gmail.com",
+			"public":"APIKEY",
+			"private":"APISECRET"
+		},{
+			"name":"usuario 2",
+			"mail":"usuario2@gmail.com",
+			"public":"APIKEY",
+			"private":"APISECRET"
+		}
+	]
+}
