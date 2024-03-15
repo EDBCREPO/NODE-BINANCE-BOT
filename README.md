@@ -1,25 +1,18 @@
 # binance bot
-Buy and Sell Cryptos Automaticaly in Binance.
+- Buy and Sell Cryptos Automaticaly in Binance.
 
-# Features
+- Trade with multiple cryptos simultaneously
 
--trade with multiple cryptos simultaneously
+- Based on MA and Weak Classifier Algorithms
 
--Based on RSI and IA Algorithms
+- Notification By Using Gmail
 
--Notifications via Gmail
+- SPOT only supported
 
-# screen shots
-
-BTC/USDT
-
-![btc](https://user-images.githubusercontent.com/41095555/146663954-3acb0530-fb33-4409-8521-944b1f8f7068.png)
-
-ADA/USDT
-
-![ada](https://user-images.githubusercontent.com/41095555/146663956-b418c368-552e-4197-8b4b-6b5e71babc06.png)
-
-MANA/USDT
-
-![MANA](https://user-images.githubusercontent.com/41095555/146663958-b7cde465-b404-4075-900e-d8330e02a457.png)
-
+``` bash #.env file
+SECRET = "" #PrivateKey
+APIKEY = "" #APIKey
+EMAIL  = "" #User mail
+BMAIL  = "" #Bot  mail
+BPASS  = "" #Bot  Pass
+```

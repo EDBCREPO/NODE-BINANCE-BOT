@@ -1,177 +1,182 @@
 
-const Binance = require('node-binance-api'); 
-const { exec } = require("child_process");
-const { MATH } = require("./math.js");
-const mailer = require('nodemailer');
-const fs = require('fs');
+const kernel  = require("./modules/math.js");
+const Binance = require("node-binance-api");
+const mailer  = require("nodemailer");
+require('dotenv').config();
+
+/*──────────────────────────────────────────────────────────────────────────────*/
 
 const binance = new Binance();
-const _interval = "3d";
 
-var currency = [
-	"AAVE","NEAR","MANA","RUNE","HBAR","IOTA","MKR",
-	"SOL","ADA","UNI","ICP","XLM","XRP","LTC","TRX",
-	"LINK","WAVES","DOGE","SAND","LUNA","ZEC","LRC",
-	"DGB","BAT","HOT","VET","BCH","ONT","UNI","ONE",
-	"ALPHA","AVAX","SXP","DOT","EGLD","ALGO","DASH",
-	"MATIC","QTUM","AXS","THETA","ATOM","DAI","CHZ",
-	"FTM","XMR","ENJ","OMG","XEC","RAY","DOT","NEO",
-	"EOS","IOTX","GALA","SHIB"
-]; const base = "USDT";
+const bot = {
 
-var accounts = new Object();
-var bondary = [100,1000];
-var maxPrice = 100;
-var medPrice = 50;
-var minPrice = 25;
-var minBase  = 10;
+	tradecoin: [
+		"BTC", "ETH", "BNB", "SOL", "DOGE", "SHIB",
+		"DOT", "TRX", "LTC", "XMR", "LINK", "AVAX",
+		"SUI", "ADA", "XRP", "AVA", "MATIC", 
+	],
 
-notify = async( _string, mail ) =>{
+	pricebound: [ 30, 50, 100 ],
+	bondary   : [ 100, 1000 ],
+	basecoin  : "USDT",
+	interval  : "12h",
 
+};
+
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+notify = async( _string ) => {
+	/*
 	const sender = mailer.createTransport({
-		auth: { user:'bnncbot@gmail.com', pass:'j0533nm4nu31' },
-		service: 'gmail',
+		auth: { user: process.env["BMAIL"], 
+				pass: process.env["BPASS"]
+		}, service: 'gmail',
 	});
 
-	var mailOptions = {
+	let mailOptions = {
 	  	subject: 'BinanceBot Notification',
-	  	from: 'bnncbot@gmail.com',
-	  	text: _string, to: mail
+		to:       process.env["EMAIL"],
+	  	from:     process.env["BMAIL"],
+	  	text:     _string, 
 	};
 	
 	sender.sendMail( mailOptions );
+	*/
 }
 
-getAccounts = ()=>{
-	var accounts = JSON.parse( fs.readFileSync( './accounts.json' ) );
-	accounts.users.forEach( user=>{
-		user.binance = new Binance().options({
-  			APISECRET: user.private, 
-  			APIKEY: user.public
-		});
-	}); return accounts;
-}
+/*──────────────────────────────────────────────────────────────────────────────*/
 
-getAvailableBalance = async( user )=>{
-	var balance = await user.binance.balance();
-	for( var i in balance ){	
-		if( Number(balance[i].available) == 0 )
-			delete balance[i];
-	}	return balance;
-}
-
-buy = async ( _symbolA, _symbolB ) => {
-	try{
-		if( _symbolA == _symbolB ) return 0;
-		accounts.users.forEach( async(user)=>{
-			try{
-				const crypto = await getAvailableBalance( user );
-				const price = await getLastPrice( _symbolA,_symbolB );
-				const available = crypto[_symbolB].available;
-				var quantity = medPrice/price;
-					
-				if( available < minPrice ) return 0;
-				else if( available < bondary[0] ) quantity = minPrice/price;
-				else if( bondary[0] < available && available < bondary[1] ) quantity = maxPrice/price;
-				else quantity = (maxPrice * 2)/price;
-					
-				if( quantity <= 0.0001 ) quantity = Number( ( quantity ).toFixed(6) );
-				else if( quantity <= 0.01 ) quantity = Number( ( quantity ).toFixed(4) );
-				else if( quantity <= 1 ) quantity = Number( ( quantity ).toFixed(2) );
-				else quantity = Number( ( quantity ).toFixed(0) );
-
-				console.log( user.name, "BUY", quantity, price, (quantity*price).toFixed(4), `${_symbolA}${_symbolB}` );
-				user.binance.marketBuy( `${_symbolA}${_symbolB}`, quantity, (error,response)=>{
-					if( error ) return console.log( error.body );
-					notify( `Compra Realizada: ${_symbolA}${_symbolB}: ${quantity} en ${price}`, user.mail );
-				});
-			} catch(e) { /*console.log(e)*/ }
-		});
-	} catch(e) { /*console.log(e)*/ }
-}
-
-sell = async ( _symbolA, _symbolB ) => {
-	try{
-		if( _symbolA == _symbolB ) return 0;
-		accounts.users.forEach( async(user)=>{
-			try{
-				const crypto = await getAvailableBalance( user );		
-				var   quantity = Number( crypto[_symbolA].available );
-				const price = await getLastPrice( _symbolA,_symbolB );
-					
-				if( quantity <= 0.0001 ) quantity = Number( ( quantity-0.000001 ).toFixed(6) );
-				else if( quantity <= 0.01 ) quantity = Number( ( quantity-0.0001 ).toFixed(4) );
-				else if( quantity <= 1 ) quantity = Number( ( quantity-0.01 ).toFixed(2) );
-				else quantity = Number( ( quantity-1 ).toFixed(0) );
-
-				console.log( user.name, "SELL", quantity, price, (quantity*price).toFixed(4), `${_symbolA}${_symbolB}` );
-				user.binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error,response)=>{
-					if( error ) return console.log( error.body ); 
-					notify( `Venta Realizada: ${_symbolA}${_symbolB}: ${quantity} en ${price}`, user.mail );
-				});	
-			} catch(e) { /*console.log(e)*/ }
-		});
-	} catch(e) { /*console.log(e)*/ }
-}
-
-getAllLastPrices = async () => {
-	var allPrices = await binance.prices();
-	return allPrices;
+getAvailableBalance = async()=>{
+	let balance = await binance.balance();
+	for( let x in balance ){	
+	if ( Number(balance[x].available) == 0 )
+		 delete balance[x];
+	}	 return balance;
 }
 
 getLastPrice = async ( _symbolA, _symbolB ) => {
-	var allPrices = await binance.prices();
+	let allPrices = await binance.prices();
 	return allPrices[`${_symbolA}${_symbolB}`];
 }
 
-getHistoryPrices = async ( _symbolA, _symbolB ) => {
-	var history = await binance.candlesticks( `${_symbolA}${_symbolB}`, _interval );
-	var res = [ [],[],[],[],[],[] ];
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+buy = async ( _symbolA, _symbolB ) => {
+	try { if( _symbolA == _symbolB ) return 0;
+
+		const crypto    = await getAvailableBalance();
+		const price     = await getLastPrice( _symbolA, _symbolB );
+		const available = crypto[_symbolB]?.available ?? 0;
+		let   quantity  = bot.pricebound[1] / price;
 			
-	for( var i in history ){
-		var delta = (Number(history[i][4]) - Number(history[i][1])) / Number(history[i][1]) * 100;
-		res[0].push( Number(delta) ); 	      //DELTA
-		res[1].push( Number(history[i][1]) ); //OPEN
-		res[2].push( Number(history[i][2]) ); //HIGH
-		res[3].push( Number(history[i][3]) ); //LOW
-		res[4].push( Number(history[i][4]) ); //CLOSE
-		res[5].push( Number(history[i][5]) ); //VOLUME
-	}	return res;
+		     if( available < bot.pricebound[0] )                          return 0;
+		else if( available < bot.bondary[0] )                             quantity = bot.pricebound[0] / price;
+		else if( bot.bondary[0]<available && available < bot.bondary[1] ) quantity = bot.pricebound[1] / price;
+		else                                                              quantity = bot.pricebound[2] / price;
+			
+		     if( quantity <= 0.0001 ) quantity = Number( ( quantity ).toFixed(6) );
+		else if( quantity <= 0.01 )   quantity = Number( ( quantity ).toFixed(4) );
+		else if( quantity <= 1 )      quantity = Number( ( quantity ).toFixed(2) );
+		else                          quantity = Number( ( quantity ).toFixed(0) );
+
+		console.log( `BUY ${quantity} ${price}$ -> ${_symbolA}${_symbolB}` );
+
+		binance.marketBuy( `${_symbolA}${_symbolB}`, quantity, (error)=>{
+			if( error ) return console.log( error.body );
+			notify( `BUY: ${_symbolA}${_symbolB}: ${quantity} -> ${price}$` );
+		});
+
+	} catch(e) { console.log(e) }
 }
 
-getCryptoPrediction = async ( _symbolA, _symbolB )=>{
-	var hist = await getHistoryPrices(_symbolA,_symbolB,_interval );
-	var list = new Array(5);
+sell = async ( _symbolA, _symbolB ) => {
+	try { if ( _symbolA == _symbolB ) return 0;
+
+		const crypto   = await getAvailableBalance();		
+		const price    = await getLastPrice( _symbolA, _symbolB );
+		let   quantity = Number( crypto[_symbolA]?.available ?? 0 );
+
+			 if( quantity == 0 )      return 0;
+			
+		     if( quantity <= 0.0001 ) quantity = Number( ( quantity-0.000001 ).toFixed(6) );
+		else if( quantity <= 0.01 )   quantity = Number( ( quantity-0.0001 ).toFixed(4) );
+		else if( quantity <= 1 )      quantity = Number( ( quantity-0.01 ).toFixed(2) );
+		else                          quantity = Number( ( quantity-1 ).toFixed(0) );
+
+		console.log( `SELL ${quantity} = ${price}$ -> ${_symbolA}${_symbolB}` );
+
+		binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error)=>{
+			if( error ) return console.log( error.body ); 
+			notify( `SELL: ${_symbolA}${_symbolB}: ${quantity} -> ${price}$` );
+		});	
+
+	} catch(e) { console.log(e) }
+}
+
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+getHistoryPrices = async ( _symbolA, _symbolB ) => {
+	let history = await binance.candlesticks( `${_symbolA}${_symbolB}`, bot.interval );
+	let res = [ [],[],[],[],[],[] ];
+			
+	for( let x in history ){
+		let delta= ( Number(history[x][4]) + Number(history[x][1]) + Number(history[x][2]) + Number(history[x][3]) ) / 4;
+		res[5].push( Number(history[x][5]) ); //VOLUME
+		res[4].push( Number(history[x][4]) ); //CLOSE
+		res[1].push( Number(history[x][1]) ); //OPEN
+		res[2].push( Number(history[x][2]) ); //HIGH
+		res[3].push( Number(history[x][3]) ); //LOW
+		res[0].push( Number(delta) ); 	      //MID
+	}	
 	
-	list[0] = Math.MA( Math.RSI( hist[0],6 ),6 );
-	list[1] = Math.Edges( list[0] );
+	return res;
+}
+
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+getPrediction = async ( _symbolA, _symbolB )=>{
+	let hist = await getHistoryPrices( _symbolA, _symbolB );
+	let list = new Array(2);
 	
-	for( var i in list ){ list[i] = list[i].reverse(); }
+	list[0] = kernel.MA( hist[0], 6 );
+	list[1] = kernel.Edges( list[0] );
+	
+	for( let x in list ){ list[x] = list[x].reverse(); }
+
 	return list[1];
 }
 
-var interval = 0;
-update = async()=>{
-	var list = new Array();	var cryptos = ["",""];
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+update = async()=>{ let list = new Array();	let queue = ["",""];
 	
-	for( var i in currency ){
-		try{var prediction = await getCryptoPrediction( currency[i],base );
-			list.push([ currency[i].replace("1000",""), prediction ]);
-		} catch(e) { console.log("error reading: ", currency[i], e ); }
-	}	list = list.sort( (a,b)=>{ return a[1][0]-b[1][0]; }).reverse();	
-	
-	for( var i in list ){ 
-		if( list[i][1][0] == 100 ){ sell( list[i][0], base ); cryptos[0] += `${list[i][0]}, `; } 
-		else if( list[i][1][0] == 0 ){ buy( list[i][0], base ); cryptos[1] += `${list[i][0]}, `; }	
+	for( let x in bot.tradecoin ){
+	try{ let prediction = await getPrediction( bot.tradecoin[x], bot.basecoin );
+		 list.push([ bot.tradecoin[x], prediction ]);
+	} catch(e) { console.log("error reading: ", bot.tradecoin[x] ); }
 	}
 	
-	accounts.users.forEach( user=>{
-		notify(` Buen Momento Para Vender: ${cryptos[0]} \n\n Buen Momento Para Comprar: ${cryptos[1]} `, user.mail );
-	});	console.log( "interval: ", interval, new Date() ); interval++;
+	for( let x in list ){ 
+		     if( list[x][1][0] == 100 ){ sell( list[x][0], bot.basecoin ); queue[0] += `- ${list[x][0]} \n`; } 
+		else if( list[x][1][0] == 0   ){  buy( list[x][0], bot.basecoin ); queue[1] += `- ${list[x][0]} \n`; }	
+	}
+	
+	notify( `Buen Momento Para Vender: \n ${queue[0]} \n\n Buen Momento Para Comprar: \n ${queue[1]}` );
+
 }
 
-setup = async ()=>{ accounts = getAccounts();
-	binance.websockets.candlesticks("BNBUSDT", _interval, (candle) => {
-		if( candle.k.x == true ) update();
-	});
-}; 	setup();
+/*──────────────────────────────────────────────────────────────────────────────*/
+
+(()=>{
+
+	console.log("initializing Binance Server");
+
+	binance.options({
+		APISECRET: process.env["SECRET"], 
+		APIKEY   : process.env["APIKEY"],
+		'family' : 4,
+	}); update();
+	
+	setInterval( update, 1 * 1000 * 3600 ); 
+
+})();
