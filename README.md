@@ -9,10 +9,11 @@
 
 - SPOT only supported
 
-``` bash #.env file
-SECRET = "" #PrivateKey
-APIKEY = "" #APIKey
-EMAIL  = "" #User mail
-BMAIL  = "" #Bot  mail
-BPASS  = "" #Bot  Pass
+``` bash 
+#.env file format
+SECRET = "XXXx" #PrivateKey
+APIKEY = "XXXx" #APIKey
+EMAIL  = "XXXx" #User mail
+BMAIL  = "XXXx" #Bot  mail
+BPASS  = "XXXx" #Bot  Pass
 ```
