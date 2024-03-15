@@ -11,9 +11,10 @@ const binance = new Binance();
 const bot = {
 
 	tradecoin: [
-		"BTC", "ETH", "BNB", "SOL", "DOGE", "SHIB",
-		"DOT", "TRX", "LTC", "XMR", "LINK", "AVAX",
-		"SUI", "ADA", "XRP", "AVA", "MATIC", 
+		"BTC", "ETH", "BNB", "SOL", "DOGE", 
+		"DOT", "TRX", "LTC", "XMR", "LINK",
+		"SUI", "ADA", "XRP", "AVA", "SHIB", 
+		"AVAX", "MATIC", 
 	],
 
 	pricebound: [ 30, 50, 100 ],
@@ -25,7 +26,8 @@ const bot = {
 
 /*──────────────────────────────────────────────────────────────────────────────*/
 
-notify = async( _string ) => {
+notify = async( _body ) => {
+
 	/*
 	const sender = mailer.createTransport({
 		auth: { user: process.env["BMAIL"], 
@@ -37,11 +39,13 @@ notify = async( _string ) => {
 	  	subject: 'BinanceBot Notification',
 		to:       process.env["EMAIL"],
 	  	from:     process.env["BMAIL"],
-	  	text:     _string, 
+	  	text:     _body, 
 	};
 	
 	sender.sendMail( mailOptions );
 	*/
+
+	console.log( _body );
 }
 
 /*──────────────────────────────────────────────────────────────────────────────*/
@@ -66,27 +70,26 @@ buy = async ( _symbolA, _symbolB ) => {
 
 		const crypto    = await getAvailableBalance();
 		const price     = await getLastPrice( _symbolA, _symbolB );
-		const available = crypto[_symbolB]?.available ?? 0;
+		const available = Number(crypto[_symbolB]?.available ?? 0);
 		let   quantity  = bot.pricebound[1] / price;
 			
-		     if( available < bot.pricebound[0] )                          return 0;
-		else if( available < bot.bondary[0] )                             quantity = bot.pricebound[0] / price;
-		else if( bot.bondary[0]<available && available < bot.bondary[1] ) quantity = bot.pricebound[1] / price;
-		else                                                              quantity = bot.pricebound[2] / price;
+		     if( available == 0 )                return;
+
+			 if( available < bot.pricebound[0] ) quantity = bot.pricebound[0] / price;
+		else if( available < bot.pricebound[1] ) quantity = bot.pricebound[1] / price;
+		else                                     quantity = bot.pricebound[2] / price;
 			
 		     if( quantity <= 0.0001 ) quantity = Number( ( quantity ).toFixed(6) );
 		else if( quantity <= 0.01 )   quantity = Number( ( quantity ).toFixed(4) );
 		else if( quantity <= 1 )      quantity = Number( ( quantity ).toFixed(2) );
 		else                          quantity = Number( ( quantity ).toFixed(0) );
 
-		console.log( `BUY ${quantity} ${price}$ -> ${_symbolA}${_symbolB}` );
-
 		binance.marketBuy( `${_symbolA}${_symbolB}`, quantity, (error)=>{
-			if( error ) return console.log( error.body );
+			if( error ) return console.log(""); // error.body
 			notify( `BUY: ${_symbolA}${_symbolB}: ${quantity} -> ${price}$` );
 		});
 
-	} catch(e) { console.log(e) }
+	} catch(e) { /*console.log(e);*/ }
 }
 
 sell = async ( _symbolA, _symbolB ) => {
@@ -94,23 +97,21 @@ sell = async ( _symbolA, _symbolB ) => {
 
 		const crypto   = await getAvailableBalance();		
 		const price    = await getLastPrice( _symbolA, _symbolB );
-		let   quantity = Number( crypto[_symbolA]?.available ?? 0 );
+		let   quantity = Number(crypto[_symbolA]?.available ?? 0);
 
-			 if( quantity == 0 )      return 0;
+			 if( quantity == 0 )      return;
 			
 		     if( quantity <= 0.0001 ) quantity = Number( ( quantity-0.000001 ).toFixed(6) );
 		else if( quantity <= 0.01 )   quantity = Number( ( quantity-0.0001 ).toFixed(4) );
 		else if( quantity <= 1 )      quantity = Number( ( quantity-0.01 ).toFixed(2) );
 		else                          quantity = Number( ( quantity-1 ).toFixed(0) );
 
-		console.log( `SELL ${quantity} = ${price}$ -> ${_symbolA}${_symbolB}` );
-
 		binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error)=>{
-			if( error ) return console.log( error.body ); 
+			if( error ) return console.log(""); // error.body
 			notify( `SELL: ${_symbolA}${_symbolB}: ${quantity} -> ${price}$` );
 		});	
 
-	} catch(e) { console.log(e) }
+	} catch(e) { /*console.log(e);*/ }
 }
 
 /*──────────────────────────────────────────────────────────────────────────────*/
@@ -143,6 +144,7 @@ getPrediction = async ( _symbolA, _symbolB )=>{
 	
 	for( let x in list ){ list[x] = list[x].reverse(); }
 
+// 	console.log( _symbolA, list[1].slice(0,15) );
 	return list[1];
 }
 
