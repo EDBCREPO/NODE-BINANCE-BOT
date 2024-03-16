@@ -10,7 +10,7 @@ output.MA = ( A,_interval )=>{
 	}	return res;
 }
 
-output.EMA = ( A,_interval ) =>{
+output.EMA = ( A, _interval ) =>{
 	let smooth = 2 / ( 1 + _interval ); let res = new Array();
 	for( let i=0; i<A.length; i++ ){
 	 if( i==0 ) res.push( A[i] * smooth );
@@ -57,11 +57,11 @@ output.Prom = ( OPEN, CLOSE, HIGH, LOW ) =>{
 	}	return res;
 }
 
-output.Atang = ( A,_interval ) =>{
+output.Atang = ( A, _interval ) =>{
 	let res = new Array();
 	for( let i=1; i<A.length; i++ ){
 		let op = (A[i]-A[i-1]);
-		res.push( Math.atan( op/1 ) );
+		res.push( Math.atan( op ) );
 	}	return res;
 }
 

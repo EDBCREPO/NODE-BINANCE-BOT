@@ -16,12 +16,13 @@ const bot = {
 		"SUI", "ADA", "XRP", "AVA", "CITY", 
 		"ACA", "ACM", "ACH", "ADX", "AVAX",
 		"REI", "BAR", "WIF", "KNC", "PEPE",
-		"XLM", "AVAX", "NEAR", "THETA", "MATIC", 
+		"RSR", "XLM", "KEY", "JUP", "AVAX",
+		"NEAR", "THETA", "MATIC", "FLOKI" //, "BOME",
 	],
 
 	pricebound: [ 30, 50, 100 ],
 	basecoin  : "USDT",
-	interval  : "12h",
+	interval  : "6h",
 
 };
 
@@ -100,8 +101,8 @@ sell = async ( _symbolA, _symbolB ) => {
 		const available = crypto[_symbolA]?.available ?? 0;
 
 		if( available == 0 ){ return; } let quantity = Number(available);
-		if( quantity >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
-		else                quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
+		if( quantity  >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
+		else                 quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
 
 		binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error)=>{
 			if( error ) return console.log( error.body );
@@ -118,7 +119,7 @@ getHistoryPrices = async ( _symbolA, _symbolB ) => {
 	let res = [ [],[],[],[],[],[] ];
 			
 	for( let x in history ){
-		let delta= ( Number(history[x][4]) + Number(history[x][1]) + Number(history[x][2]) + Number(history[x][3]) ) / 4;
+		let delta= ( Number(history[x][4]) + Number(history[x][1]) ) / 2;
 		res[5].push( Number(history[x][5]) ); //VOLUME
 		res[4].push( Number(history[x][4]) ); //CLOSE
 		res[1].push( Number(history[x][1]) ); //OPEN
@@ -140,11 +141,13 @@ getPrediction = async ( _symbolA, _symbolB )=>{
 /*──────────────────────────────────────────────────────────────────────────────*/
 
 update = async()=>{ let list = new Array();	let queue = ["",""];
+
+	console.log( "actualización:>", Date() );
 	
 	for( let x in bot.tradecoin ){
 	try{ let prediction = await getPrediction( bot.tradecoin[x], bot.basecoin );
 		 list.push([ bot.tradecoin[x], prediction ]);
-		 console.log( bot.tradecoin[x], prediction.slice(0,10) );
+	//   console.log( bot.tradecoin[x], prediction.slice(0,20) );
 	} catch(e) { console.log("error reading: ", bot.tradecoin[x] ); }
 	}
 	
@@ -152,7 +155,7 @@ update = async()=>{ let list = new Array();	let queue = ["",""];
 		     if( list[x][1][0] == 100 ){ sell( list[x][0], bot.basecoin ); queue[0] += `- ${list[x][0]} \n`; } 
 		else if( list[x][1][0] == 0   ){  buy( list[x][0], bot.basecoin ); queue[1] += `- ${list[x][0]} \n`; }	
 	}
-	
+
 	if( queue[0].length != 0 ) notify( `Buen Momento Para Vender: \n ${queue[0]}` );
 	if( queue[1].length != 0 ) notify( `Buen Momento Para Comprar:\n ${queue[1]}` );
 
