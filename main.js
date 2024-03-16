@@ -13,12 +13,13 @@ const bot = {
 	tradecoin: [
 		"BTC", "ETH", "BNB", "SOL", "DOGE", 
 		"DOT", "TRX", "LTC", "XMR", "LINK",
-		"SUI", "ADA", "XRP", "AVA", "SHIB", 
-		"AVAX", "NEAR", "XLM", "THETA", "MATIC", 
+		"SUI", "ADA", "XRP", "AVA", "CITY", 
+		"ACA", "ACM", "ACH", "ADX", "AVAX",
+		"REI", "BAR", "WIF", "KNC", "PEPE",
+		"XLM", "AVAX", "NEAR", "THETA", "MATIC", 
 	],
 
 	pricebound: [ 30, 50, 100 ],
-	bondary   : [ 100, 1000 ],
 	basecoin  : "USDT",
 	interval  : "12h",
 
@@ -66,7 +67,7 @@ getLastPrice = async ( _symbolA, _symbolB ) => {
 /*──────────────────────────────────────────────────────────────────────────────*/
 
 buy = async ( _symbolA, _symbolB ) => {
-	try { if( _symbolA == _symbolB ) return 0;
+	try { if( _symbolA == _symbolB ) return;
 
 		const crypto    = await getAvailableBalance();
 		const price     = await getLastPrice( _symbolA, _symbolB );
@@ -80,12 +81,8 @@ buy = async ( _symbolA, _symbolB ) => {
 		else if( available >=bot.pricebound[0] ) quantity = bot.pricebound[0] / price;
 		else                                     quantity = available         / price;
 
-		console.log( quantity, price );
-			
-		     if( quantity <= 0.0001 ) quantity = ( quantity ).toFixed(6);
-		else if( quantity <= 0.01 )   quantity = ( quantity ).toFixed(4);
-		else if( quantity <= 1 )      quantity = ( quantity ).toFixed(2);
-		else                          quantity = ( quantity ).toFixed(0);
+		if( quantity >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
+		else                quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
 
 		binance.marketBuy( `${_symbolA}${_symbolB}`, quantity, (error)=>{
 			if( error ) return console.log( error.body );
@@ -96,15 +93,15 @@ buy = async ( _symbolA, _symbolB ) => {
 }
 
 sell = async ( _symbolA, _symbolB ) => {
-	try { if ( _symbolA == _symbolB ) return 0;
+	try { if ( _symbolA == _symbolB ) return;
 
 		const crypto    = await getAvailableBalance();		
 		const price     = await getLastPrice( _symbolA, _symbolB );
 		const available = crypto[_symbolA]?.available ?? 0;
 
-		if( available == 0 ){ return; } 
-		
-		let quantity = available; quantity[quantity.lenght-1] == '1';
+		if( available == 0 ){ return; } let quantity = Number(available);
+		if( quantity >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
+		else                quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
 
 		binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error)=>{
 			if( error ) return console.log( error.body );
@@ -137,15 +134,7 @@ getHistoryPrices = async ( _symbolA, _symbolB ) => {
 
 getPrediction = async ( _symbolA, _symbolB )=>{
 	let hist = await getHistoryPrices( _symbolA, _symbolB );
-	let list = new Array(2);
-	
-	list[0] = kernel.MA( hist[0], 6 );
-	list[1] = kernel.Edges( list[0] );
-	
-	for( let x in list ){ list[x] = list[x].reverse(); }
-
-//	console.log( _symbolA, list[1].slice(0,15) );
-	return list[1];
+	return kernel.Edges( kernel.MA( hist[0],6 ) ).reverse();
 }
 
 /*──────────────────────────────────────────────────────────────────────────────*/
@@ -155,6 +144,7 @@ update = async()=>{ let list = new Array();	let queue = ["",""];
 	for( let x in bot.tradecoin ){
 	try{ let prediction = await getPrediction( bot.tradecoin[x], bot.basecoin );
 		 list.push([ bot.tradecoin[x], prediction ]);
+		 console.log( bot.tradecoin[x], prediction.slice(0,10) );
 	} catch(e) { console.log("error reading: ", bot.tradecoin[x] ); }
 	}
 	
@@ -179,7 +169,7 @@ update = async()=>{ let list = new Array();	let queue = ["",""];
 		APIKEY   : process.env["APIKEY"],
 		'family' : 4,
 	});  update();
-	
+
 	setInterval( update, 1 * 1000 * 3600 ); 
 
 })();
