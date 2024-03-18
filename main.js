@@ -13,11 +13,9 @@ const bot = {
 	tradecoin: [
 		"BTC", "ETH", "BNB", "SOL", "DOGE", 
 		"DOT", "TRX", "LTC", "XMR", "LINK",
-		"SUI", "ADA", "XRP", "AVA", "CITY", 
-		"ACA", "ACM", "ACH", "ADX", "AVAX",
-		"REI", "BAR", "WIF", "KNC", "PEPE",
+		"SUI", "ADA", "XRP", "AVA", "NEAR",
 		"RSR", "XLM", "KEY", "JUP", "AVAX",
-		"NEAR", "THETA", "MATIC", "FLOKI" //, "BOME",
+		"REI", "THETA", "MATIC"
 	],
 
 	pricebound: [ 30, 50, 100 ],
@@ -60,10 +58,21 @@ getAvailableBalance = async()=>{
 	}	 return balance;
 }
 
-getLastPrice = async ( _symbolA, _symbolB ) => {
-	let allPrices = await binance.prices();
-	return allPrices[`${_symbolA}${_symbolB}`];
+getTotalBalance = async()=>{
+	try { let crypto = await getAvailableBalance(); 
+		  let cost   = bot.price;
+		  let price  = 0; 
+
+	 for( x of Object.keys( crypto ) ){
+	 if ( x == bot.basecoin ){ price += Number( crypto[x].available ); }
+	 else price += Number( crypto[x].available ) * Number(cost[`${x}${bot.basecoin}`]);
+	 }
+
+		         return price;
+	} catch(e) { return e; }
 }
+
+getAllPrices = async () => { return await binance.prices(); }
 
 /*──────────────────────────────────────────────────────────────────────────────*/
 
@@ -71,11 +80,11 @@ buy = async ( _symbolA, _symbolB ) => {
 	try { if( _symbolA == _symbolB ) return;
 
 		const crypto    = await getAvailableBalance();
-		const price     = await getLastPrice( _symbolA, _symbolB );
+		const price     = bot.price[`${_symbolA}${_symbolB}`];
 		const available = Number(crypto[_symbolB]?.available ?? 0);
 		let   quantity  = bot.pricebound[0] / price;
 			
-		     if( available == 0 )                return;
+		     if( Number(available) < 1 ) return; if( Number(quantity)  > 1 ) return;          
 
 			 if( available >=bot.pricebound[2] ) quantity = bot.pricebound[2] / price;
 		else if( available >=bot.pricebound[1] ) quantity = bot.pricebound[1] / price;
@@ -83,7 +92,7 @@ buy = async ( _symbolA, _symbolB ) => {
 		else                                     quantity = available         / price;
 
 		if( quantity >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
-		else                quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
+		else                quantity = String(quantity).match(/^\d+\.\d{0,3}/gi)[0];
 
 		binance.marketBuy( `${_symbolA}${_symbolB}`, quantity, (error)=>{
 			if( error ) return console.log( error.body );
@@ -97,12 +106,12 @@ sell = async ( _symbolA, _symbolB ) => {
 	try { if ( _symbolA == _symbolB ) return;
 
 		const crypto    = await getAvailableBalance();		
-		const price     = await getLastPrice( _symbolA, _symbolB );
+		const price     = bot.price[`${_symbolA}${_symbolB}`];
 		const available = crypto[_symbolA]?.available ?? 0;
 
 		if( available == 0 ){ return; } let quantity = Number(available);
 		if( quantity  >= 1 ) quantity = String(quantity).match(/^\d+/gi)[0];
-		else                 quantity = String(quantity).match(/^\d+(\.\d{0,3})?/gi)[0];
+		else                 quantity = String(quantity).match(/^\d+\.\d{0,3}/gi)[0];
 
 		binance.marketSell( `${_symbolA}${_symbolB}`, quantity, (error)=>{
 			if( error ) return console.log( error.body );
@@ -140,9 +149,13 @@ getPrediction = async ( _symbolA, _symbolB )=>{
 
 /*──────────────────────────────────────────────────────────────────────────────*/
 
-update = async()=>{ let list = new Array();	let queue = ["",""];
+update = async()=>{ 
+	let list = new Array();	let queue = ["",""]; 
+	console.log( "Update:>", Date() ); 
 
-	console.log( "actualización:>", Date() );
+	try { bot.price = await getAllPrices();
+		  console.log( "balance:", await getTotalBalance() );
+	} catch(e) { console.log(e); return; }
 	
 	for( let x in bot.tradecoin ){
 	try{ let prediction = await getPrediction( bot.tradecoin[x], bot.basecoin );
@@ -156,14 +169,14 @@ update = async()=>{ let list = new Array();	let queue = ["",""];
 		else if( list[x][1][0] == 0   ){  buy( list[x][0], bot.basecoin ); queue[1] += `- ${list[x][0]} \n`; }	
 	}
 
-	if( queue[0].length != 0 ) notify( `Buen Momento Para Vender: \n ${queue[0]}` );
-	if( queue[1].length != 0 ) notify( `Buen Momento Para Comprar:\n ${queue[1]}` );
+	if( queue[0].length != 0 ) notify( `Buen Momento Para Vender:  \n${queue[0]}` );
+	if( queue[1].length != 0 ) notify( `Buen Momento Para Comprar: \n${queue[1]}` );
 
 }
 
 /*──────────────────────────────────────────────────────────────────────────────*/
 
-(()=>{
+(async()=>{
 
 	console.log("initializing Binance Server");
 
